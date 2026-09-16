@@ -1,62 +1,48 @@
-name: Build Madeira IPA
+name: Build iOS App
 
 on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-latest
+
     steps:
-      - name: Checkout repo with submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          brew install cmake ninja llvm mingw-w64 bison flex pkg-config gnu-sed
+    - name: Set up Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
 
-      - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+    - name: Patch glassEffect error
+      run: |
+        find . -name "*.swift" -exec sed -i '' 's/\.glassEffect()/\.background(\.ultraThinMaterial)/g' {} +
 
-      - name: Run all native build scripts
-        run: |
-          export MD_APPLE_SDK_ROOT="$(xcode-select -p)"
-          chmod +x build/*/*.sh || true
-          chmod +x scripts/*.sh || true
-          for script in build/*/build.sh; do
-            echo "Running $script..."
-            "$script" || true
-          done
+    - name: Build App Payload
+      run: |
+        xcodebuild archive \
+          -project app/Madeira.xcodeproj \
+          -scheme "Madeira" \
+          -sdk iphoneos \
+          -archivePath build/Madeira.xcarchive \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO
 
-      - name: Ensure required resources exist
-        run: |
-          mkdir -p app/Madeira
-          touch app/Madeira/x86_64-vcruntime
-          touch app/Madeira/prefix-template.tar.gz
+    - name: Create Unsigned IPA
+      run: |
+        mkdir -p Payload
+        cp -r build/Madeira.xcarchive/Products/Applications/*.app Payload/
+        zip -r Madeira-unsigned.ipa Payload
 
-      - name: Build Xcode Project
-        run: |
-          cd app
-          xcodebuild build \
-            -project Madeira.xcodeproj \
-            -scheme Madeira \
-            -sdk iphoneos \
-            -configuration Release \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Package IPA
-        run: |
-          mkdir -p Payload
-          cp -r ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphoneos/*.app Payload/ 2>/dev/null || true
-          zip -r Madeira.ipa Payload
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Madeira-IPA
-          path: Madeira.ipa
+    - name: Upload IPA Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Madeira-unsigned-IPA
+        path: Madeira-unsigned.ipa
