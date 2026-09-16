@@ -17,13 +17,9 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Run build scripts
-        run: |
-          chmod +x build/*/*.sh || true
-          ./build/*/build.sh || true
-
       - name: Build Xcode Project
         run: |
+          cd app
           xcodebuild build \
             -project Madeira.xcodeproj \
             -scheme Madeira \
@@ -36,7 +32,7 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload
-          cp -r build/Release-iphoneos/*.app Payload/ 2>/dev/null || cp -r ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphoneos/*.app Payload/
+          cp -r app/build/Release-iphoneos/*.app Payload/ 2>/dev/null || cp -r ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphoneos/*.app Payload/
           zip -r Madeira.ipa Payload
 
       - name: Upload Artifact
