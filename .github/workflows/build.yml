@@ -14,17 +14,28 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install cmake ninja llvm mingw-w64 bison flex pkg-config
+          brew install cmake ninja llvm mingw-w64 bison flex pkg-config gnu-sed
 
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
-      - name: Run native build scripts
+      - name: Run all native build scripts
         run: |
+          export MD_APPLE_SDK_ROOT="$(xcode-select -p)"
           chmod +x build/*/*.sh || true
-          ./build/d3d11-triangle/build.sh || true
+          chmod +x scripts/*.sh || true
+          for script in build/*/build.sh; do
+            echo "Running $script..."
+            "$script" || true
+          done
+
+      - name: Ensure required resources exist
+        run: |
+          mkdir -p app/Madeira
+          touch app/Madeira/x86_64-vcruntime
+          touch app/Madeira/prefix-template.tar.gz
 
       - name: Build Xcode Project
         run: |
